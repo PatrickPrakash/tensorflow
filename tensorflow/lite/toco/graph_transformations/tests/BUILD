@@ -1,10 +1,11 @@
-package(default_visibility = ["//visibility:public"])
-
-licenses(["notice"])  # Apache 2.0
-
 load(
     "//tensorflow:tensorflow.bzl",
     "tf_cc_test",
+)
+
+package(
+    default_visibility = ["//visibility:public"],
+    licenses = ["notice"],  # Apache 2.0
 )
 
 tf_cc_test(
@@ -31,6 +32,17 @@ tf_cc_test(
 )
 
 tf_cc_test(
+    name = "remove_successive_transpose_test",
+    srcs = ["remove_successive_transpose_test.cc"],
+    deps = [
+        "//tensorflow/lite/toco:graph_transformations",
+        "//tensorflow/lite/toco:model",
+        "//tensorflow/lite/toco:tooling_util",
+        "@com_google_googletest//:gtest_main",
+    ],
+)
+
+tf_cc_test(
     name = "resolve_constant_concatenation_test",
     srcs = ["resolve_constant_concatenation_test.cc"],
     deps = [
@@ -44,6 +56,18 @@ tf_cc_test(
 tf_cc_test(
     name = "resolve_constant_unary_test",
     srcs = ["resolve_constant_unary_test.cc"],
+    deps = [
+        "//tensorflow/lite/toco:graph_transformations",
+        "//tensorflow/lite/toco:model",
+        "//tensorflow/lite/toco:tooling_util",
+        "@com_google_absl//absl/memory",
+        "@com_google_googletest//:gtest_main",
+    ],
+)
+
+tf_cc_test(
+    name = "identify_l2_normalization_test",
+    srcs = ["identify_l2_normalization_test.cc"],
     deps = [
         "//tensorflow/lite/toco:graph_transformations",
         "//tensorflow/lite/toco:model",

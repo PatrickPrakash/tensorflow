@@ -18,13 +18,13 @@ limitations under the License.
 
 #include "absl/strings/str_cat.h"
 #include "absl/strings/string_view.h"
-#include "cuda/cuda_config.h"
-#include "tensorflow/core/platform/load_library.h"
+#include "third_party/gpus/cuda/cuda_config.h"
 #include "tensorflow/stream_executor/lib/env.h"
 #include "tensorflow/stream_executor/lib/error.h"
 #include "tensorflow/stream_executor/lib/path.h"
 #include "tensorflow/stream_executor/platform/logging.h"
 #include "tensorflow/stream_executor/platform/port.h"
+#include "third_party/tensorrt/tensorrt_config.h"
 
 namespace stream_executor {
 namespace internal {
@@ -33,6 +33,7 @@ namespace {
 string GetCudaVersion() { return TF_CUDA_VERSION; }
 string GetCudaLibVersion() { return TF_CUDA_LIB_VERSION; }
 string GetCudnnVersion() { return TF_CUDNN_VERSION; }
+string GetTensorRTVersion() { return TF_TENSORRT_VERSION; }
 
 port::StatusOr<void*> GetDsoHandle(const string& name, const string& version) {
   auto filename = port::Env::Default()->FormatLibraryFileName(name, version);
@@ -44,14 +45,14 @@ port::StatusOr<void*> GetDsoHandle(const string& name, const string& version) {
     return dso_handle;
   }
 
-  auto message = absl::StrCat("Could not dlopen library '", filename,
+  auto message = absl::StrCat("Could not load dynamic library '", filename,
                               "'; dlerror: ", status.error_message());
 #if !defined(PLATFORM_WINDOWS)
   if (const char* ld_library_path = getenv("LD_LIBRARY_PATH")) {
     message += absl::StrCat("; LD_LIBRARY_PATH: ", ld_library_path);
   }
 #endif
-  LOG(INFO) << message;
+  LOG(WARNING) << message;
   return port::Status(port::error::FAILED_PRECONDITION, message);
 }
 }  // namespace
@@ -83,6 +84,14 @@ port::StatusOr<void*> GetCufftDsoHandle() {
   return GetDsoHandle("cufft", GetCudaLibVersion());
 }
 
+port::StatusOr<void*> GetCusolverDsoHandle() {
+  return GetDsoHandle("cusolver", GetCudaLibVersion());
+}
+
+port::StatusOr<void*> GetCusparseDsoHandle() {
+  return GetDsoHandle("cusparse", GetCudaLibVersion());
+}
+
 port::StatusOr<void*> GetCurandDsoHandle() {
   return GetDsoHandle("curand", GetCudaLibVersion());
 }
@@ -99,6 +108,14 @@ port::StatusOr<void*> GetCuptiDsoHandle() {
 
 port::StatusOr<void*> GetCudnnDsoHandle() {
   return GetDsoHandle("cudnn", GetCudnnVersion());
+}
+
+port::StatusOr<void*> GetNvInferDsoHandle() {
+  return GetDsoHandle("nvinfer", GetTensorRTVersion());
+}
+
+port::StatusOr<void*> GetNvInferPluginDsoHandle() {
+  return GetDsoHandle("nvinfer_plugin", GetTensorRTVersion());
 }
 
 port::StatusOr<void*> GetRocblasDsoHandle() {
@@ -144,6 +161,16 @@ port::StatusOr<void*> GetCurandDsoHandle() {
 
 port::StatusOr<void*> GetCufftDsoHandle() {
   static auto result = new auto(DsoLoader::GetCufftDsoHandle());
+  return *result;
+}
+
+port::StatusOr<void*> GetCusolverDsoHandle() {
+  static auto result = new auto(DsoLoader::GetCusolverDsoHandle());
+  return *result;
+}
+
+port::StatusOr<void*> GetCusparseDsoHandle() {
+  static auto result = new auto(DsoLoader::GetCusparseDsoHandle());
   return *result;
 }
 

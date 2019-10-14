@@ -63,7 +63,7 @@ MICROLITE_LIBS := -lm
 # generate things like the protobuf compiler that require that), so all of
 # these settings are for the target compiler.
 CXXFLAGS := -O3 -DNDEBUG
-CXXFLAGS += --std=c++11 -g -DTF_LITE_STATIC_MEMORY
+CXXFLAGS += -std=c++11 -g -DTF_LITE_STATIC_MEMORY
 CCFLAGS := -DNDEBUG -g -DTF_LITE_STATIC_MEMORY
 LDOPTS := -L/usr/local/lib
 ARFLAGS := -r
@@ -106,11 +106,26 @@ tensorflow/lite/kernels/op_macros.h \
 tensorflow/lite/kernels/padding.h \
 tensorflow/lite/kernels/internal/common.h \
 tensorflow/lite/kernels/internal/compatibility.h \
+tensorflow/lite/kernels/internal/optimized/neon_check.h \
+tensorflow/lite/kernels/internal/reference/arg_min_max.h \
+tensorflow/lite/kernels/internal/reference/binary_function.h \
+tensorflow/lite/kernels/internal/reference/comparisons.h \
+tensorflow/lite/kernels/internal/reference/ceil.h \
+tensorflow/lite/kernels/internal/reference/conv.h \
 tensorflow/lite/kernels/internal/reference/depthwiseconv_float.h \
 tensorflow/lite/kernels/internal/reference/depthwiseconv_uint8.h \
+tensorflow/lite/kernels/internal/reference/floor.h \
 tensorflow/lite/kernels/internal/reference/fully_connected.h \
+tensorflow/lite/kernels/internal/reference/pooling.h \
+tensorflow/lite/kernels/internal/reference/prelu.h \
+tensorflow/lite/kernels/internal/reference/maximum_minimum.h \
+tensorflow/lite/kernels/internal/reference/round.h \
 tensorflow/lite/kernels/internal/reference/softmax.h \
+tensorflow/lite/kernels/internal/reference/strided_slice.h \
+tensorflow/lite/kernels/internal/reference/arg_min_max.h \
+tensorflow/lite/kernels/internal/reference/neg.h \
 tensorflow/lite/kernels/internal/round.h \
+tensorflow/lite/kernels/internal/strided_slice_logic.h \
 tensorflow/lite/kernels/internal/tensor_ctypes.h \
 tensorflow/lite/kernels/internal/types.h \
 tensorflow/lite/kernels/internal/quantization_util.h \
@@ -148,17 +163,13 @@ ARDUINO_PROJECT_FILES := \
 
 ALL_PROJECT_TARGETS :=
 
-KEIL_PROJECT_FILES := \
-  README_KEIL.md \
-  keil_project.uvprojx
-
 include $(MAKEFILE_DIR)/third_party_downloads.inc
 THIRD_PARTY_DOWNLOADS :=
 $(eval $(call add_third_party_download,$(GEMMLOWP_URL),$(GEMMLOWP_MD5),gemmlowp,))
 $(eval $(call add_third_party_download,$(FLATBUFFERS_URL),$(FLATBUFFERS_MD5),flatbuffers,))
 
 # These target-specific makefiles should modify or replace options like
-# CXXFLAGS or LIBS to work for a specific targetted architecture. All logic
+# CXXFLAGS or LIBS to work for a specific targeted architecture. All logic
 # based on platforms or architectures should happen within these files, to
 # keep this main makefile focused on the sources and dependencies.
 include $(wildcard $(MAKEFILE_DIR)/targets/*_makefile.inc)
@@ -184,6 +195,9 @@ MICROLITE_LIB_PATH := $(LIBDIR)$(MICROLITE_LIB_NAME)
 CXX := $(CC_PREFIX)${TARGET_TOOLCHAIN_PREFIX}g++
 CC := $(CC_PREFIX)${TARGET_TOOLCHAIN_PREFIX}gcc
 AR := $(CC_PREFIX)${TARGET_TOOLCHAIN_PREFIX}ar
+
+# Load optimized kernel implementations
+include $(wildcard $(MAKEFILE_DIR)/ext_libs/*.inc)
 
 # Load the examples.
 include $(wildcard tensorflow/lite/experimental/micro/examples/*/Makefile.inc)
@@ -246,12 +260,16 @@ $(BINDIR)%.bin: $(BINDIR)%
 	$(OBJCOPY) $< $@ -O binary
 
 # Generate standalone makefile projects for all of the test targets.
-$(foreach TEST_TARGET,$(MICROLITE_TEST_SRCS),\
+$(foreach TEST_TARGET,$(filter-out tensorflow/lite/experimental/micro/kernels/%,$(MICROLITE_TEST_SRCS)),\
 $(eval $(call microlite_test,$(notdir $(basename $(TEST_TARGET))),$(TEST_TARGET))))
+$(foreach TEST_TARGET,$(filter tensorflow/lite/experimental/micro/kernels/%,$(MICROLITE_TEST_SRCS)),\
+$(eval $(call microlite_test,kernel_$(notdir $(basename $(TEST_TARGET))),$(TEST_TARGET))))
 
 test: $(MICROLITE_TEST_TARGETS)
 
 generate_projects: $(ALL_PROJECT_TARGETS)
+
+generate_non_kernel_projects: $(filter-out generate_kernel%,$(ALL_PROJECT_TARGETS))
 
 # Gets rid of all generated files.
 clean:

@@ -179,20 +179,21 @@ class StreamExecutorInterface {
   virtual port::Status Init(int device_ordinal,
                             DeviceOptions device_options) = 0;
 
-  virtual bool GetKernel(const MultiKernelLoaderSpec &spec,
-                         KernelBase *kernel) {
-    return false;
-  }
-  virtual bool LoadModule(const MultiModuleLoaderSpec &spec,
-                          ModuleHandle *module_handle) {
-    return false;
+  virtual port::Status GetKernel(const MultiKernelLoaderSpec &spec,
+                                 KernelBase *kernel) {
+    return port::UnimplementedError("Not Implemented");
   }
   virtual bool UnloadModule(ModuleHandle module_handle) { return false; }
-  virtual bool Launch(Stream *stream, const ThreadDim &thread_dims,
-                      const BlockDim &block_dims, const KernelBase &k,
-                      const KernelArgsArrayBase &args) {
-    return false;
+  virtual port::Status LoadModule(const MultiModuleLoaderSpec &spec,
+                                  ModuleHandle *module_handle) {
+    return port::UnimplementedError("Not Implemented");
   }
+  virtual port::Status Launch(Stream *stream, const ThreadDim &thread_dims,
+                              const BlockDim &block_dims, const KernelBase &k,
+                              const KernelArgsArrayBase &args) {
+    return port::UnimplementedError("Not Implemented");
+  }
+
   // Releases any state associated with the kernel.
   virtual void UnloadKernel(const KernelBase *kernel) {}
   virtual void *Allocate(uint64 size) = 0;
@@ -288,7 +289,8 @@ class StreamExecutorInterface {
 
   // Creates a new DeviceDescription object. Ownership is transferred to the
   // caller.
-  virtual DeviceDescription *PopulateDeviceDescription() const = 0;
+  virtual port::StatusOr<std::unique_ptr<DeviceDescription>>
+  CreateDeviceDescription() const = 0;
 
   // Attempts to register the provided TraceListener with the device-specific
   // Executor implementation. When this is called, the PIMPL interface has
@@ -382,21 +384,6 @@ class StreamExecutorInterface {
  private:
   SE_DISALLOW_COPY_AND_ASSIGN(StreamExecutorInterface);
 };
-
-using StreamExecutorFactory =
-    std::function<StreamExecutorInterface *(const PluginConfig &)>;
-using EventFactory = std::function<EventInterface *(StreamExecutor *)>;
-using StreamFactory = std::function<StreamInterface *(StreamExecutor *)>;
-using TimerFactory = std::function<TimerInterface *(StreamExecutor *)>;
-using KernelFactory = std::function<KernelInterface*()>;
-
-StreamExecutorFactory *MakeCUDAExecutorImplementation();
-
-StreamExecutorFactory *MakeROCMExecutorImplementation();
-
-StreamExecutorFactory *MakeOpenCLExecutorImplementation();
-
-extern StreamExecutorFactory MakeHostExecutorImplementation;
 
 
 }  // namespace internal

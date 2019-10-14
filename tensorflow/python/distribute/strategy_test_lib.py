@@ -52,6 +52,7 @@ from tensorflow.python.training import optimizer
 from tensorflow.python.training import training_util
 from tensorflow.python.util import nest
 
+
 class _TestException(Exception):
   pass
 
@@ -306,12 +307,42 @@ class DistributionTestBase(test.TestCase):
 
     return _input_fn
 
+  def _test_input_fn_iterable(
+      self, strategy, input_fn, expected_values, ignore_order=False):
+    assert_same = self.assertCountEqual if ignore_order else self.assertEqual
+
+    iterable = strategy.experimental_distribute_datasets_from_function(input_fn)
+    if context.executing_eagerly():
+      iterator = iter(iterable)
+
+      for expected_value in expected_values:
+        computed_value = self.evaluate(
+            list(strategy.experimental_local_results(next(iterator))))
+        assert_same(expected_value, computed_value)
+
+      with self.assertRaises(StopIteration):
+        self.evaluate(strategy.experimental_local_results(next(iterator)))
+
+      # After re-initializing the iterator, should be able to iterate again.
+      iterator = iter(iterable)
+
+      for expected_value in expected_values:
+        computed_value = self.evaluate(
+            list(strategy.experimental_local_results(next(iterator))))
+        assert_same(expected_value, computed_value)
+    else:
+      iterator = dataset_ops.make_initializable_iterator(iterable)
+      self._test_input_fn_iterator(iterator, strategy.extended.worker_devices,
+                                   expected_values, test_reinitialize=True,
+                                   ignore_order=ignore_order)
+
   def _test_input_fn_iterator(self,
                               iterator,
                               devices,
                               expected_values,
                               sess=None,
-                              test_reinitialize=True):
+                              test_reinitialize=True,
+                              ignore_order=False):
     evaluate = lambda x: sess.run(x) if sess else self.evaluate(x)
     evaluate(iterator.initialize())
 
@@ -319,7 +350,10 @@ class DistributionTestBase(test.TestCase):
       next_element = iterator.get_next()
       computed_value = evaluate(
           [values.select_replica(r, next_element) for r in range(len(devices))])
-      self.assertEqual(expected_value, computed_value)
+      if ignore_order:
+        self.assertCountEqual(expected_value, computed_value)
+      else:
+        self.assertEqual(expected_value, computed_value)
 
     with self.assertRaises(errors.OutOfRangeError):
       next_element = iterator.get_next()
@@ -335,7 +369,10 @@ class DistributionTestBase(test.TestCase):
         computed_value = evaluate([
             values.select_replica(r, next_element) for r in range(len(devices))
         ])
-        self.assertEqual(expected_value, computed_value)
+        if ignore_order:
+          self.assertCountEqual(expected_value, computed_value)
+        else:
+          self.assertEqual(expected_value, computed_value)
 
   def _test_global_step_update(self, strategy):
     with strategy.scope():
@@ -392,6 +429,23 @@ class DistributionTestBase(test.TestCase):
       self.assertAllEqual(y, y_2)
       with self.assertRaises(errors.OutOfRangeError):
         run_and_concatenate(strategy, i)
+
+  def _test_trainable_variable(self, strategy):
+    for cls in [variables.VariableV1, variables.Variable]:
+      with strategy.scope():
+        v1 = cls(1.0)
+        self.assertEqual(True, v1.trainable)
+
+        v2 = cls(1.0, synchronization=variables.VariableSynchronization.ON_READ)
+        self.assertEqual(False, v2.trainable)
+
+        v3 = cls(1.0, synchronization=variables.VariableSynchronization.ON_READ,
+                 trainable=True)
+        self.assertEqual(True, v3.trainable)
+
+        v4 = cls(1.0, synchronization=variables.VariableSynchronization.ON_READ,
+                 trainable=False)
+        self.assertEqual(False, v4.trainable)
 
 
 class OneDeviceDistributionTestBase(test.TestCase):

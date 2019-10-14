@@ -367,7 +367,7 @@ class Image(ItemHandler):
       dtype: images will be decoded at this bit depth. Different formats
         support different bit depths.
           See tf.image.decode_image,
-              tf.decode_raw,
+              tf.io.decode_raw,
       repeated: if False, decodes a single image. If True, decodes a
         variable number of image strings from a 1D tensor of strings.
       dct_method: An optional string. Defaults to empty string. It only takes
@@ -443,11 +443,9 @@ class Image(ItemHandler):
       """Decodes a raw image."""
       return parsing_ops.decode_raw(image_buffer, out_type=self._dtype)
 
-    pred_fn_pairs = {
-        math_ops.logical_or(
-            math_ops.equal(image_format, 'raw'),
-            math_ops.equal(image_format, 'RAW')): decode_raw,
-    }
+    pred_fn_pairs = [(math_ops.logical_or(
+        math_ops.equal(image_format, 'raw'),
+        math_ops.equal(image_format, 'RAW')), decode_raw)]
     image = control_flow_ops.case(
         pred_fn_pairs, default=check_jpeg, exclusive=True)
 
@@ -464,7 +462,7 @@ class TFExampleDecoder(data_decoder.DataDecoder):
   Decoding Example proto buffers is comprised of two stages: (1) Example parsing
   and (2) tensor manipulation.
 
-  In the first stage, the tf.parse_example function is called with a list of
+  In the first stage, the tf.io.parse_example function is called with a list of
   FixedLenFeatures and SparseLenFeatures. These instances tell TF how to parse
   the example. The output of this stage is a set of tensors.
 
@@ -481,7 +479,7 @@ class TFExampleDecoder(data_decoder.DataDecoder):
 
     Args:
       keys_to_features: a dictionary from TF-Example keys to either
-        tf.VarLenFeature or tf.FixedLenFeature instances. See tensorflow's
+        tf.io.VarLenFeature or tf.io.FixedLenFeature instances. See tensorflow's
         parsing_ops.py.
       items_to_handlers: a dictionary from items (strings) to ItemHandler
         instances. Note that the ItemHandler's are provided the keys that they

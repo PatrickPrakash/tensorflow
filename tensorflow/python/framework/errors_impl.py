@@ -46,6 +46,14 @@ def _compact_stack_trace(op):
   return compact_traces
 
 
+class InaccessibleTensorError(ValueError):
+  pass
+
+
+class OperatorNotAllowedInGraphError(TypeError):
+  pass
+
+
 @tf_export("errors.OpError", v1=["errors.OpError", "OpError"])
 @deprecation.deprecated_endpoints("OpError")
 class OpError(Exception):
@@ -420,7 +428,7 @@ class UnimplementedError(OpError):
 
   Some operations may raise this error when passed otherwise-valid
   arguments that it does not currently support. For example, running
-  the `tf.nn.max_pool` operation
+  the `tf.nn.max_pool2d` operation
   would raise this error if pooling was requested on the batch dimension,
   because this is not yet supported.
 
